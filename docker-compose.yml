@@ -1,0 +1,53 @@
+services:  
+  jenkins-agent:
+    build:
+      context: ./jenkins-agent
+    container_name: txstate-jenkins-agent
+    restart: unless-stopped
+    user: root
+    environment:
+      JENKINS_URL: ${JENKINS_URL}
+      JENKINS_AGENT_NAME: ${JENKINS_AGENT_NAME}
+      JENKINS_SECRET: ${JENKINS_AGENT_SECRET}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ci-network
+    depends_on:
+      - jenkins-controller 
+  jenkins-controller:
+    build:
+      context: ./jenkins-controller
+    container_name: txstate-jenkins-controller
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc.yaml
+      JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD}
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - ./jenkins-controller/casc.yaml:/var/jenkins_home/casc.yaml:ro
+    networks:
+      - ci-network
+
+  registry:
+    image: registry:2
+    container_name: txstate-registry
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+    networks:
+      - ci-network
+
+volumes:
+  jenkins-data:
+  registry-data:
+
+networks:
+  ci-network:
+    driver: bridge
