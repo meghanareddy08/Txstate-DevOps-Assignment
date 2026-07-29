@@ -1,6 +1,7 @@
 configuration-as-code
-job-dsl
-workflow-aggregator
-git
 credentials-binding
+git
+job-dsl
 pipeline-stage-view
+workflow-aggregator
+ws-cleanup
