@@ -12,6 +12,10 @@ def buildableRepositories = repositories.findAll {
 
 println "Creating or updating ${buildableRepositories.size()} repository jobs"
 
+folder('repository-builds') {
+    description('Automatically generated repository build pipelines')
+}
+
 buildableRepositories.each { repo ->
     def safeJobName = repo.full_name
         .toLowerCase()
