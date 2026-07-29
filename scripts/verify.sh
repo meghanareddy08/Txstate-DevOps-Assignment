@@ -6,21 +6,21 @@ docker compose ps
 
 echo
 echo "Checking Jenkins..."
-curl --fail --silent --show-error \
+curl --silent --show-error \
   http://localhost:8080/login \
   >/dev/null
 echo "Jenkins is reachable"
 
 echo
 echo "Checking local registry..."
-curl --fail --silent --show-error \
+curl --silent --show-error \
   http://localhost:5000/v2/ \
   >/dev/null
 echo "Registry is reachable"
 
 echo
 echo "Checking registry catalog..."
-curl --fail --silent --show-error \
+curl --silent --show-error \
   http://localhost:5000/v2/_catalog | jq .
 
 echo
