@@ -1,4 +1,4 @@
-From jenkins/jenkins:lts-jdk21
+FROM jenkins/jenkins:lts-jdk21
 
 USER jenkins
 

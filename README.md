@@ -58,38 +58,34 @@ The Jenkins controller has zero executors. Repository workloads run only on the 
 
 ```text
 .
-├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
 ├── README.md
-├── jenkins-controller/
-│   ├── Dockerfile
-│   ├── plugins.txt
-│   └── casc.yaml
-├── jenkins-agent/
-│   └── Dockerfile
+├── docker-compose.yml
 ├── discovery/
 │   ├── discover_repositories.py
-│   ├── requirements.txt
-│   └── tests/
-│       └── test_discovery.py
+│   └── requirements.txt
+├── docs/
+│   ├── architecture.md
+│   └── images/
+│       ├── catalog-service-success.png
+│       ├── generated-repository-jobs.png
+│       ├── payment-service-test-gate.png
+│       └── seed-pipeline-success.png
+├── jenkins-agent/
+│   └── Dockerfile
+├── jenkins-controller/
+│   ├── Dockerfile
+│   ├── casc.yaml
+│   └── plugins.txt
 ├── jobs/
 │   └── seed_job.groovy
 ├── pipelines/
-│   ├── seed.Jenkinsfile
-│   └── repository-build.Jenkinsfile
-├── scripts/
-│   ├── bootstrap.sh
-│   └── verify.sh
-└── docs/
-    ├── architecture.md
-    ├── security.md
-    ├── ai-usage.md
-    └── images/
-        ├── seed-pipeline-success.png
-        ├── generated-repository-jobs.png
-        ├── catalog-service-success.png
-        └── payment-service-test-gate.png
+│   ├── repository-build.Jenkinsfile
+│   └── seed.Jenkinsfile
+└── scripts/
+    ├── bootstrap.sh
+    └── verify.sh
 ```
 
 ## Prerequisites

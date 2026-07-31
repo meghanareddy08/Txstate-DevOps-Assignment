@@ -1,0 +1,2 @@
+# No external Python packages are required.
+# Repository discovery uses the Python standard library.

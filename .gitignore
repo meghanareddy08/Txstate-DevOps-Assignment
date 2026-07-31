@@ -4,3 +4,7 @@ __pycache__/
 .pytest_cache/
 discovery/repositories.json
 discovery/repositories.json.tmp
+
+# Python cache
+__pycache__/
+*.py[cod]
