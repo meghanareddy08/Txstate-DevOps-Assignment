@@ -17,3 +17,40 @@ jenkins:
 unclassified:
   location:
     url: "http://localhost:8080/"
+
+jobs:
+  - script: |
+      pipelineJob('github-organization-seed') {
+        description(
+          'Discovers repositories in a GitHub organization and generates repository pipeline jobs.'
+        )
+
+        parameters {
+          stringParam(
+            'GITHUB_ORG',
+            'meghana-devops-test',
+            'GitHub organization to discover'
+          )
+        }
+
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url(
+                    'https://github.com/meghanareddy08/Txstate-DevOps-Assignment.git'
+                  )
+                }
+
+                branch('*/main')
+              }
+            }
+
+            scriptPath('pipelines/seed.Jenkinsfile')
+            lightweight(true)
+          }
+        }
+
+        disabled(false)
+      }

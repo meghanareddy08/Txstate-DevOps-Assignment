@@ -9,30 +9,65 @@ from pathlib import Path
 
 API_BASE = "https://api.github.com"
 
-
 def github_request(url: str, token: str | None = None):
+    import time
+
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "txstate-devops-assignment",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
 
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    request = urllib.request.Request(url, headers=headers)
+    retryable_codes = {429, 500, 502, 503, 504}
+    max_attempts = 4
 
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8"))
+    for attempt in range(1, max_attempts + 1):
+        request = urllib.request.Request(url, headers=headers)
 
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return None
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.loads(response.read().decode("utf-8"))
 
-        raise RuntimeError(
-            f"GitHub API request failed: {exc.code} {exc.reason}"
-        ) from exc
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return None
 
+            if exc.code not in retryable_codes or attempt == max_attempts:
+                raise RuntimeError(
+                    f"GitHub API request failed: {exc.code} {exc.reason}"
+                ) from exc
+
+            retry_after = exc.headers.get("Retry-After")
+            delay = int(retry_after) if retry_after else 2 ** (attempt - 1)
+
+            print(
+                f"GitHub API returned {exc.code}. "
+                f"Retrying in {delay} seconds "
+                f"(attempt {attempt}/{max_attempts})...",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+
+        except urllib.error.URLError as exc:
+            if attempt == max_attempts:
+                raise RuntimeError(
+                    f"GitHub API connection failed: {exc.reason}"
+                ) from exc
+
+            delay = 2 ** (attempt - 1)
+
+            print(
+                f"GitHub API connection error. "
+                f"Retrying in {delay} seconds "
+                f"(attempt {attempt}/{max_attempts})...",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+
+    raise RuntimeError("GitHub API request failed after retries")
 
 def list_repositories(org: str, token: str | None = None):
     repositories = []
