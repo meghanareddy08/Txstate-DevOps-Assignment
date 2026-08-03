@@ -1,19 +1,17 @@
 # GitHub Organization Jenkins Pipeline Factory
 
-This project runs Jenkins and a local Docker Registry in Docker Compose.
+This project runs Jenkins and a local Docker Registry using Docker Compose.
 
 Given a GitHub organization, it:
 
-1. discovers all repositories
-2. checks each repository for a root-level `Dockerfile`
-3. creates or updates one Jenkins pipeline per qualifying repository
-4. runs a root-level `test.sh` when present
-5. stops the pipeline when the test fails
-6. builds and pushes successful images to the local registry
+- discovers all repositories
+- checks each repository for a root-level `Dockerfile`
+- creates or updates one Jenkins pipeline per qualifying repository
+- runs a root-level `test.sh` when present
+- stops the pipeline when a test fails
+- builds and pushes successful images to the local registry
 
 The Jenkins controller has zero executors. Discovery, testing, Docker builds, and registry pushes run on a dedicated Jenkins agent labeled `docker`.
-
----
 
 ## Demonstrated Results
 
@@ -24,7 +22,7 @@ meghana-devops-test
 ```
 
 | Repository | Dockerfile | test.sh | Result |
-|---|---:|---:|---|
+|---|---|---|---|
 | `catalog-service` | Yes | Passes | Image built and pushed |
 | `notification-service` | Yes | Missing | Image built and pushed |
 | `payment-service` | Yes | Fails | Build and push blocked |
@@ -32,14 +30,10 @@ meghana-devops-test
 
 Final result:
 
-```text
-Repositories discovered: 4
-Generated Jenkins jobs: 3
-Successful images published: 2
-Expected failed pipelines: 1
-```
-
----
+- Repositories discovered: 4
+- Generated Jenkins jobs: 3
+- Successful images published: 2
+- Expected failed pipelines: 1
 
 ## Architecture
 
@@ -68,23 +62,28 @@ Docker Build
 Local Docker Registry
 ```
 
-Main components:
+## Components
 
 | Component | Purpose |
 |---|---|
-| Jenkins controller | Orchestrates seed and generated jobs |
-| Jenkins agent | Runs discovery, tests, builds, and pushes |
-| Discovery script | Enumerates repositories and checks files |
+| Jenkins controller | Orchestrates the seed and generated jobs |
+| Jenkins agent | Runs discovery, tests, Docker builds, and registry pushes |
+| Discovery script | Enumerates repositories and checks repository files |
 | Job DSL | Creates repository-specific Jenkins jobs |
 | Repository pipeline | Applies test, build, and push logic |
 | Local registry | Stores successful Docker images |
 | `bootstrap.sh` | Starts and validates the environment |
 | `run-demo.sh` | Runs the complete demonstration |
-| `verify.sh` | Checks Jenkins, Compose, and registry status |
+| `verify.sh` | Checks Jenkins, Compose, agent, and registry status |
 
----
+# Reviewer Setup
 
-## Prerequisites
+These instructions work on either:
+
+- a local Linux machine
+- a remote Linux host such as an Ubuntu EC2 instance
+
+## 1. Prerequisites
 
 The host must have:
 
@@ -109,30 +108,56 @@ jq --version
 
 Recommended minimum resources:
 
-```text
-CPU: 2 cores
-Memory: 4 GB
-Disk: 10 GB
+- CPU: 2 vCPUs
+- Memory: 4 GB
+- Disk: 20 GB
+
+A machine with 2 vCPUs and 8 GB memory is recommended for smoother Docker builds.
+
+Jenkins images, plugins, workspaces, and Docker build layers may exceed the default disk size of a small virtual machine.
+
+Check available disk space:
+
+```bash
+df -h /
 ```
 
----
+Several GB of free space should remain before running the complete demonstration.
 
-## Clean Checkout Setup
-
-### 1. Clone the repository
+## 2. Clone the Repository
 
 ```bash
 git clone https://github.com/meghanareddy08/Txstate-DevOps-Assignment.git
 cd Txstate-DevOps-Assignment
 ```
 
-### 2. Create the environment file
+Confirm the checkout is clean:
+
+```bash
+git status
+```
+
+Expected:
+
+```text
+nothing to commit, working tree clean
+```
+
+## 3. Create the Environment File
+
+Copy the example file:
 
 ```bash
 cp .env.example .env
 ```
 
-Update `.env`:
+Edit it:
+
+```bash
+nano .env
+```
+
+Configure:
 
 ```env
 JENKINS_ADMIN_USER=admin
@@ -144,18 +169,28 @@ JENKINS_AGENT_SECRET=replace-with-the-generated-agent-secret
 JENKINS_URL=http://jenkins-controller:8080
 ```
 
-The `.env` file is ignored by Git and must not be committed.
+Important:
 
-Verify:
+- `JENKINS_ADMIN_PASSWORD` is the password used to sign in to Jenkins.
+- The Jenkins administrator password is not the GitHub token.
+- Do not replace `JENKINS_AGENT_SECRET` yet.
+- Jenkins generates the agent secret after the node is created.
+- Do not add the GitHub token to `.env`.
+- Do not commit `.env`.
+
+Verify that `.env` is ignored:
 
 ```bash
 git check-ignore .env
 git ls-files .env
 ```
 
-The first command should print `.env`. The second should print nothing.
+Expected:
 
-### 3. Start Jenkins and the registry
+- `git check-ignore .env` prints `.env`
+- `git ls-files .env` prints nothing
+
+## 4. Start Jenkins and the Registry
 
 Run:
 
@@ -166,10 +201,11 @@ Run:
 On the first run, the script:
 
 - validates prerequisites
-- starts the Jenkins controller
-- starts the local registry
+- builds and starts the Jenkins controller
+- starts the local Docker registry
 - waits for Jenkins readiness
-- prints the remaining agent-registration steps
+- creates the seed job through Jenkins Configuration as Code
+- prints the remaining one-time setup steps
 
 Check services:
 
@@ -189,27 +225,43 @@ Continue when the logs show:
 Jenkins is fully up and running
 ```
 
-Direct Compose startup is also available:
+Press `Ctrl+C` to stop following the logs.
+
+On a fresh installation, the Jenkins agent cannot connect until the Jenkins node has been created and its generated secret has been added to `.env`.
+
+The agent may be stopped safely until registration is complete:
+
+```bash
+docker compose stop jenkins-agent 2>/dev/null || true
+```
+
+Direct startup of only Jenkins and the registry is also available:
 
 ```bash
 docker compose up -d --build jenkins-controller registry
 ```
 
-### 4. Open Jenkins
+## 5. Open Jenkins
 
-For local use:
+### Local Linux Host
+
+Open:
 
 ```text
 http://localhost:8080
 ```
 
-For EC2, create an SSH tunnel from the local computer:
+### Remote Host or EC2
+
+From the reviewer's local computer, create an SSH tunnel:
 
 ```bash
 ssh -i /path/to/key.pem \
   -L 8080:localhost:8080 \
-  ubuntu@EC2_PUBLIC_IP
+  ubuntu@HOST_PUBLIC_IP
 ```
+
+Keep the SSH session open.
 
 Then open:
 
@@ -217,13 +269,16 @@ Then open:
 http://localhost:8080
 ```
 
-Log in using the admin credentials from `.env`.
+Log in using:
 
----
+```text
+Username: value of JENKINS_ADMIN_USER
+Password: value of JENKINS_ADMIN_PASSWORD
+```
 
-## One-Time Jenkins Setup
+# One-Time Jenkins Configuration
 
-### 1. Confirm the seed job
+## 1. Confirm the Seed Job
 
 Jenkins Configuration as Code automatically creates:
 
@@ -231,7 +286,7 @@ Jenkins Configuration as Code automatically creates:
 github-organization-seed
 ```
 
-It uses:
+The job uses:
 
 ```text
 Repository:
@@ -246,9 +301,9 @@ pipelines/seed.Jenkinsfile
 
 The seed job does not need to be created manually.
 
-### 2. Create the build agent
+## 2. Create the Build Agent
 
-In Jenkins:
+In Jenkins, open:
 
 ```text
 Manage Jenkins
@@ -264,28 +319,63 @@ Type: Permanent Agent
 Executors: 1
 Remote root directory: /home/jenkins/agent
 Label: docker
-Usage: Only build jobs matching this label
+Usage: Only build jobs with label expressions matching this node
 Launch method: Launch agent by connecting it to the controller
 ```
 
-Save the node and copy the generated agent secret.
+Save the node.
 
-Update `.env`:
+Then open:
 
-```env
-JENKINS_AGENT_SECRET=generated-agent-secret
+```text
+Manage Jenkins
+-> Nodes
+-> Docker-agent
+-> Status
 ```
 
-Run:
+Jenkins displays an agent launch command containing:
+
+```text
+-secret <generated-secret>
+```
+
+Copy only the long value shown after `-secret`.
+
+Update `.env` on the host:
 
 ```bash
-./scripts/bootstrap.sh
+nano .env
+```
+
+Replace:
+
+```env
+JENKINS_AGENT_SECRET=replace-with-the-generated-agent-secret
+```
+
+with:
+
+```env
+JENKINS_AGENT_SECRET=the-generated-secret
+```
+
+The node name is case-sensitive and must match exactly:
+
+```env
+JENKINS_AGENT_NAME=Docker-agent
+```
+
+Recreate the agent container so it receives the new environment values:
+
+```bash
+docker compose up -d --build --force-recreate jenkins-agent
 ```
 
 Verify:
 
 ```bash
-docker compose logs --tail=50 jenkins-agent
+docker compose logs --tail=50 -f jenkins-agent
 ```
 
 Expected output includes:
@@ -294,9 +384,19 @@ Expected output includes:
 Connected
 ```
 
-### 3. Add the GitHub token
+Press `Ctrl+C` after the connection succeeds.
 
-Create a fine-grained GitHub token with read-only access.
+Confirm the agent is online:
+
+```text
+Manage Jenkins
+-> Nodes
+-> Docker-agent
+```
+
+## 3. Add the GitHub Credential
+
+Create a fine-grained GitHub token with read-only access to the target repositories.
 
 Recommended permissions:
 
@@ -305,7 +405,7 @@ Contents: Read-only
 Metadata: Read-only
 ```
 
-In Jenkins:
+In Jenkins, open:
 
 ```text
 Manage Jenkins
@@ -330,28 +430,106 @@ The credential ID must be exactly:
 github-read-token
 ```
 
-### 4. Approve Job DSL if requested
+The token is stored only in Jenkins Credentials.
 
-If Jenkins reports:
+Do not add the token to:
+
+- `.env`
+- Git
+- screenshots
+- shell history
+- README files
+
+## 4. Run the Initial Seed Build
+
+Before running the complete demonstration, trigger the seed job once.
+
+Open:
 
 ```text
-script not yet approved for use
+github-organization-seed
+-> Build with Parameters
 ```
 
-go to:
+Set:
+
+```text
+GITHUB_ORG=meghana-devops-test
+```
+
+Run the build.
+
+Expected discovery output:
+
+```text
+Repositories discovered: 4
+Buildable repositories: 3
+```
+
+### First-Run Job DSL Approval
+
+On a completely new Jenkins installation, the first seed build may fail with:
+
+```text
+ERROR: script not yet approved for use
+```
+
+This is expected on the first clean installation.
+
+Open:
 
 ```text
 Manage Jenkins
 -> In-process Script Approval
 ```
 
-Approve the pending script.
+Approve the pending Job DSL script.
 
----
+Then return to:
 
-## Run the Workflow End to End
+```text
+github-organization-seed
+-> Build with Parameters
+```
 
-After Jenkins is running, the agent is connected, and the GitHub credential exists, run:
+Set:
+
+```text
+GITHUB_ORG=meghana-devops-test
+```
+
+Run the seed job again.
+
+Expected result:
+
+```text
+Finished: SUCCESS
+```
+
+The following three jobs should be created under the `repository-builds` folder:
+
+```text
+meghana-devops-test-catalog-service
+meghana-devops-test-notification-service
+meghana-devops-test-payment-service
+```
+
+No job should be created for:
+
+```text
+platform-documentation
+```
+
+# Run the Workflow End to End
+
+After all of the following are complete:
+
+- Jenkins is running
+- `Docker-agent` is connected
+- the `github-read-token` credential exists
+- the Job DSL script has been approved
+
+run:
 
 ```bash
 ./scripts/run-demo.sh
@@ -359,12 +537,12 @@ After Jenkins is running, the agent is connected, and the GitHub credential exis
 
 The script:
 
-1. triggers the seed pipeline
-2. supplies `meghana-devops-test` as the organization
-3. waits for repository jobs to be generated
-4. runs catalog, notification, and payment pipelines
-5. checks expected success and failure results
-6. validates registry contents
+- triggers the organization seed pipeline
+- supplies `meghana-devops-test` as the organization
+- waits for repository jobs to be generated
+- runs the catalog, notification, and payment pipelines
+- checks expected success and failure results
+- validates registry contents
 
 Expected final output:
 
@@ -397,11 +575,50 @@ Registry validation:
   payment-service absent
 ```
 
-The `payment-service` Jenkins job is intentionally expected to finish with `FAILURE`. This confirms that a failed test prevents both the Docker build and registry push.
+The `payment-service` Jenkins job is intentionally expected to finish with `FAILURE`.
 
----
+This confirms that a failed test prevents both the Docker build and the registry push.
 
-## Run Against Another GitHub Organization
+# Verification
+
+Run:
+
+```bash
+./scripts/verify.sh
+```
+
+Check registry contents:
+
+```bash
+curl -s http://localhost:5000/v2/_catalog | jq
+```
+
+Expected:
+
+```json
+{
+  "repositories": [
+    "meghana-devops-test/catalog-service",
+    "meghana-devops-test/notification-service"
+  ]
+}
+```
+
+The `payment-service` image must be absent because its test failed.
+
+Confirm that the repository remains clean:
+
+```bash
+git status
+```
+
+Expected:
+
+```text
+nothing to commit, working tree clean
+```
+
+# Run Against Another GitHub Organization
 
 Open:
 
@@ -416,19 +633,18 @@ Set:
 GITHUB_ORG=<organization-name>
 ```
 
+The token stored as `github-read-token` must have read access to the selected organization and its repositories.
+
 The seed pipeline will:
 
 - enumerate repositories
-- detect root-level `Dockerfile` and `test.sh`
+- detect root-level `Dockerfile` and `test.sh` files
 - create or update Jenkins jobs for qualifying repositories
 
 A repository qualifies when:
 
-```text
-A root-level Dockerfile exists
-AND
-The repository is not archived
-```
+- a root-level `Dockerfile` exists
+- the repository is not archived
 
 The root-level `test.sh` file is optional.
 
@@ -440,9 +656,7 @@ The root-level `test.sh` file is optional.
 | Missing | Any | No Jenkins job |
 | Present | Any | No job when archived |
 
----
-
-## Image Naming
+# Image Naming
 
 Successful images are pushed to:
 
@@ -464,38 +678,133 @@ localhost:5000/meghana-devops-test/catalog-service:build-3
 
 A mutable `latest` tag is intentionally not used.
 
----
+# Troubleshooting
 
-## Verification
+## Required Command Not Found: Docker
 
-Run:
+The host does not have Docker installed or the current user cannot access it.
 
-```bash
-./scripts/verify.sh
-```
-
-Check the registry:
+Verify:
 
 ```bash
-curl -s http://localhost:5000/v2/_catalog | jq
+docker --version
+docker compose version
+docker info
 ```
 
-Expected:
+Docker installation is a host prerequisite and is not performed by this repository.
 
-```json
-{
-  "repositories": [
-    "meghana-devops-test/catalog-service",
-    "meghana-devops-test/notification-service"
-  ]
-}
+## `Unknown client name: Docker-agent`
+
+The Jenkins node has not been created, or the node name does not match:
+
+```env
+JENKINS_AGENT_NAME=Docker-agent
 ```
 
-The payment image must be absent because its test failed.
+Create the Jenkins node using the instructions above and verify the exact capitalization.
 
----
+## `Authorization failure` or `incorrect secret`
 
-## Failure Handling
+The secret in `.env` does not match the secret generated for the Jenkins node.
+
+Copy the current secret from:
+
+```text
+Manage Jenkins
+-> Nodes
+-> Docker-agent
+-> Status
+```
+
+Update `.env`, then recreate the agent container:
+
+```bash
+docker compose up -d --force-recreate jenkins-agent
+```
+
+A normal container restart may continue using the previous environment value.
+
+## Agent Is Connected but Remains Offline
+
+Check host and container disk space:
+
+```bash
+df -h /
+docker compose exec jenkins-agent df -h /tmp
+```
+
+If disk space is healthy, open:
+
+```text
+Manage Jenkins
+-> Nodes
+-> Docker-agent
+```
+
+Bring the node back online or wait for Jenkins to repeat its disk-space check.
+
+## Jenkins Reports Low Disk Space
+
+Check:
+
+```bash
+df -h /
+```
+
+Free unused files or increase the host disk size.
+
+A 20 GB disk is recommended for the complete demonstration.
+
+After increasing the host filesystem, restart the agent:
+
+```bash
+docker compose restart jenkins-agent
+docker compose exec jenkins-agent df -h /tmp
+```
+
+## First Seed Build Requires Script Approval
+
+Open:
+
+```text
+Manage Jenkins
+-> In-process Script Approval
+```
+
+Approve the pending script and run the seed job again.
+
+## GitHub API Returns `403 Forbidden`
+
+Verify:
+
+- the token has not expired
+- the token has not been revoked
+- the token has read access to the target organization
+- the credential ID is exactly `github-read-token`
+- fine-grained token access has been approved by the organization if required
+
+Update the credential under:
+
+```text
+Manage Jenkins
+-> Credentials
+-> System
+-> Global credentials
+```
+
+## Selected Git Installation Does Not Exist
+
+Jenkins may display:
+
+```text
+Selected Git installation does not exist. Using Default
+The recommended git tool is: NONE
+```
+
+This warning is harmless when the checkout continues and Jenkins displays the installed Git version.
+
+# Failure Handling
 
 The implementation handles:
 
@@ -507,7 +816,7 @@ The implementation handles:
 - unavailable registry
 - offline Jenkins agents
 
-Temporary GitHub errors such as `429`, `500`, `502`, `503`, and `504` are retried with exponential backoff.
+Temporary GitHub API errors such as `429`, `500`, `502`, `503`, and `504` are retried with exponential backoff.
 
 If discovery fails:
 
@@ -521,9 +830,7 @@ If `test.sh` fails:
 - registry push is skipped
 - Jenkins reports failure
 
----
-
-## Security Decisions
+# Security Decisions
 
 - The Jenkins controller has zero executors.
 - Repository workloads run only on the dedicated build agent.
@@ -535,11 +842,11 @@ If `test.sh` fails:
 - Only the Jenkins agent mounts `/var/run/docker.sock`.
 - The registry is intended for local evaluation and should not be exposed publicly.
 
-The Docker socket gives the build agent control over the host Docker daemon. This is an explicit trade-off for a controlled local evaluation environment.
+The Docker socket gives the build agent control over the host Docker daemon.
 
----
+This is an explicit trade-off for a controlled local evaluation environment.
 
-## Assumptions
+# Assumptions
 
 - repositories use a root-level `Dockerfile`
 - optional tests use a root-level `test.sh`
@@ -552,11 +859,9 @@ The Docker socket gives the build agent control over the host Docker daemon. Thi
 - the registry is reachable at `localhost:5000`
 - the environment is local or otherwise controlled
 
----
+# Trade-Offs
 
-## Trade-offs
-
-### Host Docker socket
+## Host Docker Socket
 
 Chosen for simple setup and fast Docker builds.
 
@@ -569,27 +874,31 @@ Production alternatives include:
 - ephemeral Kubernetes agents
 - isolated virtual machines
 
-### Permanent Jenkins agent
+## Permanent Jenkins Agent
 
 Chosen for simple local operation and troubleshooting.
 
-A production system should use short-lived isolated agents.
+A production system should use short-lived, isolated agents.
 
-### Local registry
+## Local Registry
 
 Chosen for reproducibility and easy inspection.
 
-A production registry should include TLS, authentication, retention policies, vulnerability scanning, and image signing.
+A production registry should include:
 
-### Jenkins Job DSL
+- TLS
+- authentication
+- retention policies
+- vulnerability scanning
+- image signing
+
+## Jenkins Job DSL
 
 Chosen for readable, repeatable, and idempotent job generation.
 
 The first run may require script approval.
 
----
-
-## Improvements With More Time
+# Improvements With More Time
 
 - automate inbound-agent registration
 - use external secret management
@@ -603,33 +912,29 @@ The first run may require script approval.
 - remove obsolete generated jobs automatically
 - support configurable Dockerfile and test paths
 
----
+# Evidence
 
-## Evidence
-
-### Automated End-to-End Demo
+## Automated End-to-End Demo
 
 ![Automated demo](docs/images/automated-demo-success.png)
 
-### Seed Pipeline Success
+## Seed Pipeline Success
 
 ![Seed pipeline success](docs/images/seed-pipeline-success.png)
 
-### Generated Repository Jobs
+## Generated Repository Jobs
 
 ![Generated repository jobs](docs/images/generated-repository-jobs.png)
 
-### Catalog Service Success
+## Catalog Service Success
 
 ![Catalog service success](docs/images/catalog-service-success.png)
 
-### Payment Service Test Gate
+## Payment Service Test Gate
 
 ![Payment service test gate](docs/images/payment-service-test-gate.png)
 
----
-
-## Restarting
+# Restarting
 
 After restarting the same host:
 
@@ -641,9 +946,7 @@ cd Txstate-DevOps-Assignment
 
 Jenkins jobs, credentials, build history, and registry images persist through Docker volumes.
 
----
-
-## Stopping
+# Stopping
 
 Stop containers while preserving data:
 
@@ -651,17 +954,15 @@ Stop containers while preserving data:
 docker compose down
 ```
 
-Remove containers and all persistent data:
+Remove containers and all persistent project data:
 
 ```bash
 docker compose down -v
 ```
 
-> **Warning:** `docker compose down -v` permanently removes Jenkins jobs, credentials, build history, and registry images.
+Warning: `docker compose down -v` permanently removes Jenkins jobs, credentials, build history, and registry images.
 
----
-
-## AI-Assisted Development
+# AI-Assisted Development
 
 Generative AI was used for architecture review, configuration drafting, troubleshooting, documentation organization, and security review.
 
