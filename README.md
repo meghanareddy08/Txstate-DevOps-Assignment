@@ -22,7 +22,7 @@ GitHub remains the external source-control and repository-discovery service. Jen
 
 The Jenkins controller has zero executors. Discovery, repository checkout, tests, Docker builds, and registry pushes run on a dedicated Jenkins agent labeled `docker`.
 
-For detailed diagrams and component boundaries, see [Architecture](docs/ARCHITECTURE.md).
+For detailed diagrams and component boundaries, see [Architecture](docs/architecture.md).
 
 ## Automation Scope
 
@@ -196,7 +196,7 @@ JENKINS_ADMIN_USER=admin
 JENKINS_ADMIN_PASSWORD=replace-with-a-secure-password
 
 JENKINS_AGENT_NAME=Docker-agent
-JENKINS_AGENT_SECRET=replace-with-the-generated-agent-secret
+JENKINS_AGENT_SECRET=replace-with-generated-agent-secret
 
 JENKINS_URL=http://jenkins-controller:8080
 ```
