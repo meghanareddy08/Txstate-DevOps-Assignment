@@ -387,7 +387,7 @@ nano .env
 Replace:
 
 ```env
-JENKINS_AGENT_SECRET=replace-with-the-generated-agent-secret
+JENKINS_AGENT_SECRET=replace-with-generated-agent-secret
 ```
 
 with:
